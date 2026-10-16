@@ -14,7 +14,7 @@ each to the current observation. It recomputes motion confidence per source
 rather than multiplying it through a long chain of previous frames. Blending
 uses the actual observed pixel colors, never the program's restored outputs.
 
-Gate 3 is an **experiment**, not established restoration superiority. Its
+Gate 3 remains an **experiment**, but its **frozen synthetic quality gates both passed**: four-frame direct-motion fusion scored **26.27 dB** versus spatial bilateral **24.14 dB** and direct two-frame fusion **25.04 dB** over 66 synthetic frames; it also had lower clean-referenced temporal error. See the [measured receipt](results/GATE3_RESULTS.md). These are **not** real-video restoration claims. Its
 four arms are `spatial_bilateral` (current frame only), `fusion_unaligned`,
 `fusion_pair` (directly registered previous frame) and `temporal_fuse`
 (up to 4 recent frames, direct registration and consistency gates).
