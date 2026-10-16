@@ -2,7 +2,7 @@
 
 **CPU-first experimental prototype**, based on the Sihti genealogy's most practical question: can a cheap online memory reuse texture the camera *actually saw* to recover later blurry frames, and avoid changing that texture independently every frame?
 
-**Status: Gate 1 research instrument; no established accuracy or real-world video-quality gain.** Strong multi-frame denoisers, motion-compensated burst fusion and recurrent video super-resolution already do temporal reuse. This repository does **not** claim to invent that principle, beat BasicVSR++, or validate phase/graph memory.
+**Status: Gate 1 research instrument; a measured synthetic temporal-reuse gain, but no demonstrated Sihti-specific or real-world video-quality gain.** The first frozen CPU result is [documented here](results/GATE1_RESULTS.md): the simple flow-aligned detail cache reaches **27.74 dB** vs frame-only sharpening **25.38 dB** on 72 synthetic damaged frames; the Sihti scale-gate candidate instead scores **26.96 dB** and does not beat the cache. Strong multi-frame denoisers, motion-compensated burst fusion and recurrent video super-resolution already do temporal reuse. This repository does **not** claim to invent that principle, beat BasicVSR++, or validate phase/graph memory.
 
 ## The one rule that matters
 
