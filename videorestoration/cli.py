@@ -12,6 +12,7 @@ from .benchmark import run_benchmark
 from .diagnostics import save_panel
 from .gate2 import MODES, AutoAnchor, SelectiveRestorer, focus_score
 from .gate3 import GATE3_MODES, TemporalFusionRestorer
+from .benchmark_gate3 import benchmark_gate3
 
 
 def parse_indices(spec: str) -> set[int]:
@@ -206,6 +207,8 @@ def main(argv=None) -> int:
     bench.add_argument("--width",type=int,default=160)
     bench.add_argument("--oracle-flow",action="store_true",
                        help="DIAGNOSTIC ONLY: simulator true motion, not practical")
+    gate3=sub.add_parser("benchmark-gate3",help="frozen all-noisy recent-frame fusion study")
+    gate3.add_argument("--out",default="runs/gate3")
     restore=sub.add_parser("restore",help="selected-mode video restoration with optional microscope")
     restore.add_argument("--input",required=True)
     restore.add_argument("--output",required=True)
@@ -242,6 +245,12 @@ def main(argv=None) -> int:
             "runtime_ms_mean":result["runtime_ms_mean_all_frames"],
             "state_bytes":result["estimated_peak_state_bytes"],
             "output":str(args.out)},indent=2))
+    elif args.command=="benchmark-gate3":
+        report=benchmark_gate3(args.out)
+        print(json.dumps({
+          "arms":report["arms"],
+          "registered_gates":report["registered_gates"],
+          "output":str(args.out)},indent=2))
     else:
         summary=restore_video(args.input,args.output,parse_indices(args.anchors),
               args.mode,args.comparison,args.max_frames,args.strength,args.cut_threshold,
