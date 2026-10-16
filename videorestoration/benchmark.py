@@ -142,6 +142,23 @@ def run_benchmark(out: str | Path, frames: int = 28,
             per_seed[str(seed)][arm]=float(np.mean([r["psnr_db"] for r in sub]))
     strong=scores["flow_cache"]
     candidate=scores["sihti_select"]
+    independent=scores["independent"]
+    seed_wins_reuse=sum(
+        per_seed[str(s)]["flow_cache"]>per_seed[str(s)]["independent"]
+        for s in seeds)
+    seed_wins_sihti=sum(
+        per_seed[str(s)]["sihti_select"]>per_seed[str(s)]["flow_cache"]
+        for s in seeds)
+    minimum_seed_wins=(2*len(seeds)+2)//3
+    reuse_gate=(strong["damaged_mean_psnr_db"]>independent["damaged_mean_psnr_db"]
+        and strong["motion_compensated_temporal_delta_mae"]<
+            independent["motion_compensated_temporal_delta_mae"]
+        and seed_wins_reuse>=minimum_seed_wins)
+    sihti_gate=(candidate["damaged_mean_psnr_db"]-
+                strong["damaged_mean_psnr_db"]>=0.20
+        and candidate["motion_compensated_temporal_delta_mae"]<=
+            0.95*strong["motion_compensated_temporal_delta_mae"]
+        and seed_wins_sihti>=minimum_seed_wins)
     report={
       "protocol":"video-restoration-gate1-v1",
       "truth_policy":"clean targets only in scoring; all memory writes from explicitly sharp observed frames; causal past only",
@@ -152,6 +169,15 @@ def run_benchmark(out: str | Path, frames: int = 28,
       "runtime_ms_mean_all_frames":float(np.mean(times)),
       "runtime_ms_p95_all_frames":float(np.percentile(times,95)),
       "estimated_peak_state_bytes":int(peak_bytes),
+      "registered_quality_gates":{
+        "temporal_reuse":bool(reuse_gate),
+        "sihti_specific_scale_selection":bool(sihti_gate),
+        "per_seed_psnr_wins_reuse":int(seed_wins_reuse),
+        "per_seed_psnr_wins_sihti":int(seed_wins_sihti),
+        "minimum_seed_wins":int(minimum_seed_wins),
+        "sihti_quality_thresholds":{"psnr_improvement_db":0.20,
+                                     "temporal_mae_relative_improvement":0.05}
+      },
       "tests":{
         "temporal_reuse_beats_frame_only_psnr":
           strong["damaged_mean_psnr_db"]>scores["independent"]["damaged_mean_psnr_db"],
