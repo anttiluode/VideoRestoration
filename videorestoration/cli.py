@@ -11,6 +11,8 @@ import numpy as np
 from .benchmark import run_benchmark
 from .diagnostics import save_panel
 from .gate2 import MODES, AutoAnchor, SelectiveRestorer, focus_score
+from .gate3 import GATE3_MODES, TemporalFusionRestorer
+from .benchmark_gate3 import benchmark_gate3
 
 
 def parse_indices(spec: str) -> set[int]:
@@ -40,9 +42,10 @@ def restore_video(input_file: str, output_file: str, sharp_indices: set[int],
                   auto_anchors: bool = False,
                   auto_min_score: float = 10.,
                   auto_ratio: float = 1.20,
-                  auto_gap: int = 20) -> dict:
+                  auto_gap: int = 20,
+                  history: int = 4, flow_scale: float = .5) -> dict:
     """Process only selected arm, never reinserting generated frames as memory."""
-    if not sharp_indices and not auto_anchors:
+    if not sharp_indices and not auto_anchors and mode not in GATE3_MODES:
         raise ValueError("Supply manually verified --anchors or explicitly opt into --auto-anchors")
     if max_frames is not None and max_frames<=0:
         raise ValueError("max_frames must be positive")
@@ -61,8 +64,13 @@ def restore_video(input_file: str, output_file: str, sharp_indices: set[int],
     if max_frames is not None and total is not None:
         total=min(total,max_frames)
     selector=AutoAnchor(auto_min_score,auto_ratio,auto_gap) if auto_anchors else None
-    model=SelectiveRestorer(mode=mode,strength=strength,
-                            scene_cut_threshold=cut_threshold)
+    if mode in GATE3_MODES:
+        model=TemporalFusionRestorer(mode=mode,history=history,
+                                     scene_cut_threshold=cut_threshold,
+                                     flow_scale=flow_scale)
+    else:
+        model=SelectiveRestorer(mode=mode,strength=strength,
+                                scene_cut_threshold=cut_threshold)
     folder=Path(diagnostics_dir) if diagnostics_dir else None
     if folder is not None:
         folder.mkdir(parents=True,exist_ok=True)
@@ -179,6 +187,9 @@ def restore_video(input_file: str, output_file: str, sharp_indices: set[int],
         "elapsed_wall_seconds":float(dur),
         "diagnostics_dir":str(folder) if folder is not None else None,
         "auto_anchor_selection":"heuristic-unverified" if auto_anchors else "disabled",
+        "history_frames":history if mode in GATE3_MODES else None,
+        "direct_flow_scale":flow_scale if mode in GATE3_MODES else None,
+        "source_frames":"past observed inputs only; no restored output cached",
         "quality_metrics":"unavailable (no clean ground-truth video supplied)",
         "warning":"Confidence and sharpness are heuristics, not proof of reconstruction quality; "
                   "OpenCV's MP4 writer does not preserve source audio."
@@ -196,12 +207,18 @@ def main(argv=None) -> int:
     bench.add_argument("--width",type=int,default=160)
     bench.add_argument("--oracle-flow",action="store_true",
                        help="DIAGNOSTIC ONLY: simulator true motion, not practical")
+    gate3=sub.add_parser("benchmark-gate3",help="frozen all-noisy recent-frame fusion study")
+    gate3.add_argument("--out",default="runs/gate3")
     restore=sub.add_parser("restore",help="selected-mode video restoration with optional microscope")
     restore.add_argument("--input",required=True)
     restore.add_argument("--output",required=True)
     restore.add_argument("--anchors",default="",
                          help="verified 0-based sharp frame numbers, e.g. 0,14,28-30")
-    restore.add_argument("--mode",choices=MODES,default="flow_cache")
+    restore.add_argument("--mode",choices=MODES+GATE3_MODES,default="flow_cache")
+    restore.add_argument("--history",type=int,default=4,
+                         help="Gate 3 recent observed frames (1..12, default 4)")
+    restore.add_argument("--flow-scale",type=float,default=.5,
+                         help="Gate 3 direct optical-flow scale, 0..1 (default 0.5)")
     restore.add_argument("--comparison",action="store_true",
                          help="output observed | restored, side by side")
     restore.add_argument("--max-frames",type=int)
@@ -228,6 +245,12 @@ def main(argv=None) -> int:
             "runtime_ms_mean":result["runtime_ms_mean_all_frames"],
             "state_bytes":result["estimated_peak_state_bytes"],
             "output":str(args.out)},indent=2))
+    elif args.command=="benchmark-gate3":
+        report=benchmark_gate3(args.out)
+        print(json.dumps({
+          "arms":report["arms"],
+          "registered_gates":report["registered_gates"],
+          "output":str(args.out)},indent=2))
     else:
         summary=restore_video(args.input,args.output,parse_indices(args.anchors),
               args.mode,args.comparison,args.max_frames,args.strength,args.cut_threshold,
@@ -235,7 +258,8 @@ def main(argv=None) -> int:
               diagnostics_every=args.diagnostics_every,
               progress_every=args.progress_every,
               auto_anchors=args.auto_anchors,auto_min_score=args.auto_min_score,
-              auto_ratio=args.auto_ratio,auto_gap=args.auto_gap)
+              auto_ratio=args.auto_ratio,auto_gap=args.auto_gap,
+              history=args.history,flow_scale=args.flow_scale)
         dest=Path(args.output).with_suffix(".summary.json")
         dest.write_text(json.dumps(summary,indent=2)+"\n",encoding="utf-8")
         print(json.dumps(summary,indent=2))

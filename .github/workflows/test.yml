@@ -23,6 +23,15 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Frozen procedural evaluation (not trained or cherry-picked)
         run: python -m videorestoration benchmark --out runs/ci-gate1
+      - name: Gate 3 frozen low-light video denoising evaluation
+        run: python -m videorestoration benchmark-gate3 --out runs/ci-gate3
+      - name: Upload Gate 3 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-gate3-cpu
+          path: runs/ci-gate3/
+          if-no-files-found: warn
       - name: Upload falsifiable receipts
         if: always()
         uses: actions/upload-artifact@v4

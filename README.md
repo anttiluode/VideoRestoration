@@ -4,6 +4,38 @@
 
 **Status: Gate 1 research instrument; a measured synthetic temporal-reuse gain, but no demonstrated Sihti-specific or real-world video-quality gain.** The first frozen CPU result is [documented here](results/GATE1_RESULTS.md): the simple flow-aligned detail cache reaches **27.74 dB** vs frame-only sharpening **25.38 dB** on 72 synthetic damaged frames; the Sihti scale-gate candidate instead scores **26.96 dB** and does not beat the cache. Strong multi-frame denoisers, motion-compensated burst fusion and recurrent video super-resolution already do temporal reuse. This repository does **not** claim to invent that principle, beat BasicVSR++, or validate phase/graph memory.
 
+## Gate 3 — recent-frame motion-compensated denoising
+
+Gate 2's real Ultra20 camera diagnostic found that old reference warps became
+geometrically distorted and confidence collapsed to nearly zero one second
+after the last sharp anchor. Gate 3 therefore **does not require sharp
+anchors**: it compares nearby *observed* noisy frames and directly registers
+each to the current observation. It recomputes motion confidence per source
+rather than multiplying it through a long chain of previous frames. Blending
+uses the actual observed pixel colors, never the program's restored outputs.
+
+Gate 3 remains an **experiment**, but its **frozen synthetic quality gates both passed**: four-frame direct-motion fusion scored **26.27 dB** versus spatial bilateral **24.14 dB** and direct two-frame fusion **25.04 dB** over 66 synthetic frames; it also had lower clean-referenced temporal error. See the [measured receipt](results/GATE3_RESULTS.md). These are **not** real-video restoration claims. Its
+four arms are `spatial_bilateral` (current frame only), `fusion_unaligned`,
+`fusion_pair` (directly registered previous frame) and `temporal_fuse`
+(up to 4 recent frames, direct registration and consistency gates).
+Details and frozen decision rules: [Gate 3 protocol](GATE3_PROTOCOL.md).
+
+On Windows:
+
+~~~cmd
+git pull
+python3.13 -m pip install -e .
+python3.13 -m videorestoration benchmark-gate3 --out runs/gate3
+python3.13 -m videorestoration restore --input video.mp4 --output gate3_fuse.mp4 --mode temporal_fuse --history 4 --comparison --max-frames 90 --diagnostics-dir gate3_maps --diagnostics-every 15
+~~~
+
+For the critical comparator run the same clip with
+`--mode fusion_pair` or `--mode spatial_bilateral`. The benchmark writes
+`runs/gate3/report.json`, `per_frame.csv` and `comparison.png` with **hidden
+clean synthetic targets used only for scoring**. The real video has no
+paired clean reference, and a prettier image by itself does not prove
+faithful restoration. MP4 writing is still lossy and does not preserve audio.
+
 ## Gate 2 — practical diagnosis after the camera trial
 
 The first real-camera trial barely changed the output. Only **6.6%** of pixels
