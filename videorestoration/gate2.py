@@ -159,7 +159,11 @@ class SelectiveRestorer:
         debug_maps: dict[str,np.ndarray] = {}
         if debug:
             debug_maps["confidence"] = np.zeros((h,w),np.float32)
-        zero_result = observed if sharp or self.mode=="raw" else _uint8(unsharp(x,self.strength))
+        # Do not compute the frame-only sharpening baseline on every frame
+        # when a selected temporal arm already has valid memory.
+        zero_result = observed
+        if self.mode == "independent" and not sharp:
+            zero_result = _uint8(unsharp(x,self.strength))
         if self.mode not in _MEMORY_MODES:
             return SelectedFrame(zero_result,sharp,0.,False,0,
                                  float(np.mean(np.abs(zero_result.astype(np.int16) -
@@ -173,6 +177,7 @@ class SelectiveRestorer:
                 debug_maps["aligned"] = observed
             return SelectedFrame(observed,True,1.,False,0,0.,1.,0.,debug_maps)
         if self.anchor_core is None or self.previous_uint8 is None:
+            zero_result = _uint8(unsharp(x,self.strength))
             self.previous_uint8=observed
             return SelectedFrame(zero_result,False,0.,False,0,
                                  float(np.mean(np.abs(zero_result.astype(np.int16) -
@@ -182,6 +187,7 @@ class SelectiveRestorer:
         prev=_float(self.previous_uint8)
         cut_score=float(np.mean(np.abs(smooth(x,4.)-smooth(prev,4.))))
         if cut_score>self.scene_cut_threshold:
+            zero_result = _uint8(unsharp(x,self.strength))
             self.invalidate()
             self.previous_uint8=observed
             return SelectedFrame(zero_result,False,0.,True,0,
