@@ -167,7 +167,7 @@ class ObservedDetailRestorer:
         if self.shape is not None and (h, w) != self.shape:
             raise ValueError("Frames must have identical dimensions")
         self.shape = (h, w)
-        ind = unsharp(x, self.strength)
+        # All arms must pass through already-sharp observations unchanged;\n        # otherwise the frame-only temporal comparison is unfair at anchors.\n        ind = x if sharp else unsharp(x, self.strength)
         outputs = {name: _uint8(z) for name, z in
                    [("raw", x), ("independent", ind)]}
         if sharp:
