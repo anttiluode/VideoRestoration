@@ -4,11 +4,48 @@
 
 **Status: Gate 1 research instrument; a measured synthetic temporal-reuse gain, but no demonstrated Sihti-specific or real-world video-quality gain.** The first frozen CPU result is [documented here](results/GATE1_RESULTS.md): the simple flow-aligned detail cache reaches **27.74 dB** vs frame-only sharpening **25.38 dB** on 72 synthetic damaged frames; the Sihti scale-gate candidate instead scores **26.96 dB** and does not beat the cache. Strong multi-frame denoisers, motion-compensated burst fusion and recurrent video super-resolution already do temporal reuse. This repository does **not** claim to invent that principle, beat BasicVSR++, or validate phase/graph memory.
 
+## Gate 2 — practical diagnosis after the camera trial
+
+The first real-camera trial barely changed the output. Only **6.6%** of pixels
+on average exceeded the memory-confidence threshold across 436 frames;
+the 90-frame test reached **31.9%**, but still looked virtually unchanged.
+These are usage statistics, not restoration-quality measurements.
+
+Gate 2 computes only the requested mode, preserves the frozen Gate 1 benchmark,
+exports observed/restored/aligned-reference/confidence/flow/actual-correction
+diagnostic panels and a per-frame CSV, and prints progress with ETA.
+Automatic sharp-frame selection is **opt-in and unvalidated**.
+Read [Gate 2 protocol](GATE2_PROTOCOL.md) before interpreting the panels.
+
+On Windows, after pulling and updating the editable install:
+
+~~~cmd
+git pull
+python3.13 -m pip install -e .
+python3.13 -m videorestoration restore --input video.mp4 --output gate2_flow.mp4 --anchors 0,14,28-30 --mode flow_cache --comparison --max-frames 90 --diagnostics-dir gate2_maps --diagnostics-every 15
+~~~
+
+Inspect gate2_maps/frame_000045.jpg and gate2_maps/metrics.csv. The six panels
+show **where motion mapped the last observed reference, where it is trusted,
+and what actually changed** (magnified 8 times). A brighter change map does
+not imply better reconstruction.
+
+Separately and only after manual-anchor inspection, test the heuristic:
+
+~~~cmd
+python3.13 -m videorestoration restore --input video.mp4 --output gate2_auto.mp4 --auto-anchors --mode flow_cache --comparison --max-frames 90 --diagnostics-dir gate2_auto_maps
+~~~
+
+The heuristic nominates actually observed frames by smoothed edge strength
+relative to earlier frames; it may still pick blurry or noisy frames.
+The original manual run is the control. No verified natural-video
+restoration advantage has been established.
+
 ## The one rule that matters
 
-Only a **declared genuinely sharp observed frame** can write to the detail memory. Later blurred, noisy or restored frames can move the *address* and reduce confidence, but **never write their hallucinated pixels back as evidence**.
+Only a designated **observed** frame can write to detail memory: a manually verified sharp reference, or a raw frame nominated by the optional unverified Gate 2 heuristic. Later blurred, noisy or restored frames can move the *address* and reduce confidence, but **never write their hallucinated pixels back as evidence**.
 
-The implementation is causal: it only sees the present observed frame, past observations and any explicitly supplied earlier sharp anchor. Test-only clean targets and true camera motion are kept outside the restorer.
+The implementation is causal: it only sees present and past observed frames, plus explicit or opt-in inferred anchor designations, never hidden clean targets. Test-only clean targets and true camera motion are kept outside the restorer.
 
 ### Run a synthetic experiment (CPU; no model weights)
 
