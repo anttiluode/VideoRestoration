@@ -115,6 +115,8 @@ def main(argv=None) -> int:
                               width=args.width,oracle_flow=args.oracle_flow)
         print(json.dumps({
           "arms":result["arms"],"tests":result["tests"],
+          "registered_quality_gates":result["registered_quality_gates"],
+          "per_seed_damaged_psnr_db":result["per_seed_damaged_psnr_db"],
           "runtime_ms_mean":result["runtime_ms_mean_all_frames"],
           "state_bytes":result["estimated_peak_state_bytes"],
           "output":str(args.out)},indent=2))
