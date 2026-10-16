@@ -29,6 +29,9 @@ class CoreGates(unittest.TestCase):
         model=ObservedDetailRestorer()
         x=model.process(seq[0].observed,sharp=True)
         self.assertTrue(x.sharp_observation)
+        for arm in ("raw", "independent", "flow_cache", "sihti_null", "sihti_select"):
+            self.assertTrue(np.array_equal(x.images[arm],seq[0].observed),
+                            msg="sharp observation must pass through in "+arm)
         before=model.anchor.copy()
         model.process(seq[1].observed,sharp=False)
         self.assertTrue(np.array_equal(before,model.anchor))
